@@ -1,0 +1,94 @@
+一. 所使用数据结构与算法的构思、原理和实现要点。
+1.所使用的数据结构：范围树(range tree)
+2.算法的构思、原理和实现要点：因为这是二维的范围查找，先按照x坐标将平面上所有的输入点组织为一棵平衡二叉树，称作xtree，其中树中每一个节点上的键码为其左子树中最大的键码值(可通过不断取中位数递归地来建这棵树)。
+每一个节点上将落在其对应的条带区域中的点视为一个输入子集，并且节点中保存了指向按照y坐标的从小到大组织为一个有序向量(等效于y方向的一棵BBST)的指针，各自对应于平面上的一个竖直条带区域。进行坐标查询的时候先要
+对矩形左右两条边的x坐标值进行查询，如果查询失败说明在x方向上就已经没有满足条件的气象站，可以不进行后续的y坐标的查询直接返回0；如果查询成功，对应的查询结果的两个节点一定是叶节点，找到其最低公共祖先(lca)，不妨假设x坐标更小的节点为
+a,更大的为b，忽略从lca出发到a的右转，每次左转的时候都进入相应的右子树节点进行二分搜索找到满足y方向上条件的观测站并且逐个累加温度值；对于b节点，忽略从lca到b过程中的左转向，每次右转都进入左子树进行二分搜索找到
+满足条件的观测站；最后在单独加上a和b这两点满足条件的观测站数据就能得到所有的满足条件的观测站数据。
+实现要点：1.x方向上这棵BBST的建立是关键，需要通过递归的方式建树，在根节点处先将对应的x坐标下的y坐标进行排序(为了方便找到y坐标的同时得到温度，直接将温度站结构体按照y排序以后作为ytree的成员)，每次左右子树建树完成后将各自
+ytree中的元素归并到父节点中。并且树中节点存储的应该是ytree元素有序向量的首地址，否则递归过程会爆栈。2.需要准确地找到xtree中命中节点的lca，这里也就是求两条链表的首个交点，并且需要处理好退化的情况(如两个节点重合以及树只有根节
+点)。3.查询区间是闭区间，对于二分查找的结果需要根据语义处理好边界元素。
+二. 完成过程中遇到的问题，排除问题的主要过程、使用的方法和技巧，以及参考资料。
+问题1：对于x方向的查询如果在BBST中直接查询，不如在向量中查询结果直接，因为在树中查询的时候返回的是不小于查询元素的最小的那个，可以处理好闭区间的左括号的部分，但对于右括号的处理最坏的情况下找前驱的时间可能会达到O(logn)。并且
+边界条件处理起来不方便。于是对于x坐标的查询先在其等效的x坐标的有序向量中查找，若在向量中找到再进入树中查找，这样保证直接命中不需要找前驱之类的附加操作。
+问题2:做完提交之后碰到了大量的exitcode 8的情况，在微信群中提问后由袁泰凌助教解答是除以0引发的，于是找到了条件中的若没有满足条件的观测站则直接返回结果"0"，直接除的话会分母为0。
+参考资料：
+1.http://www.xuetangx.com/courses/course-v1:TsinghuaX+70240183x_1+sp/courseware/4d2369f591f94ced806611c4dcaf79b2/2b4e06cee80b46e6ac888710607d77b6/
+学习了mooc课堂中《计算几何》中的第七章GEOMETRIC RANGE SEARCH的全部内容，使用了其中的range tree来解答本题
+2.提交过程中碰到了exitcode 8问题，在微信群中由袁泰凌助教解答是除以0的原因
+3.参考了习题解析的8-20和课本的240和241页建BBST（不断取中位数）的方法
+4.使用了pa-book中的setvbuf函数代码
+三. 时间和空间复杂度的估算。
+1.时间复杂度估算
+从已经给的函数接口中获取数据并且通过循环赋值给变量，时间复杂度为O(n);
+    n = GetNumOfStation();
+	for (int i = 0; i < n; i++) {
+		GetStationInfo(i, &STA[i].x, &STA[i].y, &STA[i].tem);
+	}
+将得到的温度站按照x方向从小到大进行排序，如果x坐标相同则按照y坐标从小到大排序，时间复杂度O(nlogn);
+    qsort(STA, n, sizeof(STA[0]), cmp);
+对x坐标进行去重，为建xtree做预处理，时间复杂度O(n);
+    int* d = new int[n];//用来存储去重之后的x坐标
+	int posInd = 0;//记录d中元素的个数
+	for (int i = 0; i < n;) {//去重
+		d[posInd] = STA[i].x;
+		int j = i;
+		while (j < n&&STA[j].x == STA[i].x)
+			j++;
+		posInd++;
+		i = j;
+	}
+建立xtree，因为是递归的，这一步的时间复杂度满足递推式t(n)=O(1)+2*t(n/2)+O(n);因此这一步t(n)=O(nlogn);
+buildXtree(0, rootrank, posInd - 1, d, root);
+void buildXtree(int lo, int mi, int hi, int* elem, Xnode* v) {
+	if (lo == hi) {//当只有一个元素的时候为递归基，并且在叶子节点上直接挂载上ytree
+		int index = searchSTArank(STA, elem[lo], 0, n);
+		int begin = index;
+		while (begin > -1 && elem[lo] == STA[begin].x)
+			begin--;
+		int length = index - begin;
+		v->stavec = new station[length];
+		for (int i = 0; i < length; i++) {
+			*(v->stavec + i) = STA[i + begin + 1];
+		}
+		v->Ylength = length;
+		return;
+	}
+	else {
+		int mil = (lo + mi) / 2;//不断取中位数
+		int mir = (mi + 1 + hi) / 2;
+		Xnode* templeft = new Xnode(elem[mil]);
+		v->lc = templeft;//完成正向和反向的连接
+		templeft->parent = v;
+		templeft->cnt = mi - lo + 1;//子树规模
+		templeft->depth = v->depth + 1;//当前节点的深度
+		Xnode* tempright = new Xnode(elem[mir]);
+		v->rc = tempright;
+		tempright->parent = v;
+		tempright->cnt = hi - mi;
+		tempright->depth = v->depth + 1;
+		buildXtree(lo, mil, mi, elem, v->lc);
+		buildXtree(mi + 1, mir, hi, elem, v->rc);
+		v->Ylength = v->lc->Ylength + v->rc->Ylength;//构造出左右两个子节点后还要归并各自的ytree得到父节点的ytree
+		v->stavec = mergeYvec(v->lc->stavec, v->rc->stavec, v->lc->Ylength, v->rc->Ylength);
+		return;
+	}
+}
+一共查询m次，对于每一次的查询，x方向上二分查找时间耗费为O(logn)，找到的满足条件的节点不超过O(logn)个，在每一个满足x方向条件的节点中还要进行二分查找，时间复杂度为O(logn),找到的所有满足条件的观测站数目
+若为r，逐个累加温度值的时间消耗为O(r),因此m次查询的时间为m*(O(logn)+O(r+log^2 n))=m*O(r+log^2 n);
+    int rank1 = searchLVec(d, lborder, 0, posInd);//现在向量中查询
+    int rank2 = searchRVec(d, rborder, 0, posInd);
+	if (rank1 == -1 || rank2 == posInd || rank2 < rank1)
+		queryResult = 0;
+	else {
+		Xnode* a = search(d[rank1], root);//命中了在进bbst中做后续操作
+		Xnode* b = search(d[rank2], root);
+		queryResult = (int)calaverage(a, b, bborder, tborder);
+	}
+因此整体时间复杂度T(n)=O(n)+O(nlogn)+O(nlogn)+m*O(r+log^2 n)=O(nlogn)+m*O(r+log^2 n);其中r为每次查询找到的观测站的数目
+2.空间复杂度的估算
+温度站的结构体数组为station STA[50005]，以及单独记录x坐标的数组int* d = new int[n]，这些的空间复杂度为O(n);
+xtree中每个键码的值最多出现两次，因此整个xtree的空间复杂度为O(n);
+每个xtree的节点中都存储了指向一个ytree中有序向量的首地址，由于xtree的每一层的节点实际都恰好覆盖了整个平面，而树高不超过O(logn),因此ytree中所有
+有序向量的空间复杂度为O(nlogn);
+因此整体空间复杂度=O(n)+O(n)+O(nlogn)=O(nlogn); 

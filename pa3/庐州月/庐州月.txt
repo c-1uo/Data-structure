@@ -1,0 +1,286 @@
+一. 所使用数据结构与算法的构思、原理和实现要点。
+1.所使用的数据结构：平衡二叉树中的SBT(Size Balanced Tree)
+2.算法的构思、原理和实现要点：对于每一座桥选择材料的时候要同时兼顾价钱和美化度这两个条件，提示中给出了贪心的策略，可以有一个大致的方向思路就是每一步都是取当前某个条件下价格最小的，若这样的条件能够保证不影响后续操作
+则所有这样的最小值加起来一定就是所需要的解。于是整个题目最关键的部分就在于找到这样一个贪心算法。最初的想法是将桥和材料都是按照价格第一排序原则、美化度第二原则进行排序，然后从所需价格最低的那座桥开始在材料序列中逐个筛选
+直到找到第一种满足要求的材料位置，这样可以保证找到的这种材料既能修第一座桥并且价格最低，连美化度都能保证是满足条件中最低的。然后记下这个时候的材料的位置，接着对于第二座桥根据相同的贪心策略进行下去一直到结束。但是这样
+好像连提示中的平衡二叉树都没用上并且提交代码后只能通过第一个测试点。于是重新思考这种错误的贪心算法的问题所在，这种方法表面上能够满足各个桥都能找到满足条件的材料，但是在逐个挑选的过程中没有有效地控制变量，在价格和美化度
+两个维度都企图追求最佳，但是实际上不满足贪心算法中对后续无影响这一条，有可能对于当前的桥的最优解的材料在当前位置的后面或者是还没有进行选择的桥对应的材料已经被排除出选择的范围了。
+重新考虑贪心算法的时候，就先控制满足材料和桥中的一个元素(钱或者美化度)，将满足其中一个条件的元素组成一个集合，再进行判断下一个条件是否满足。因为是要挑出钱最少的方案，于是对于一座桥而言，应该挑出所有满足其美化度的材料，在其中
+挑出价格最小的那个；同时为了使得材料提升的美化度能被充分利用，应该尽可能让提升美化度大的材料提供给美化度要求高的桥，避免出现美化度提升大的材料被需求小的桥使用掉之后需求大的桥找不到对应的材料。因此整个策略就能够确定下来就是
+将桥和材料都按照美化度降序排列，然后对于排序好的桥，将满足美化度要求的所有材料加入二叉树，然后从中选择价钱满足要求并且最低的那种材料并将这种材料删除。这样就完成了一座桥的选择，接下来对剩下的所有桥都执行同样的操作，这样二叉树
+中的材料一直都是在变化的，但是中间总能保证有材料满足条件并且是当前的最优解。
+实现要点：
+1.二叉树需要能够处理重复元素来应对不同材料之间价格或者是美化度相同的情况
+2.二叉树的搜索接口应该语义上是找到不小于当前搜索值中最小的那个，实现起来也是如此
+二. 完成过程中遇到的问题，排除问题的主要过程、使用的方法和技巧，以及参考资料。
+问题1：如算法构思中所述，贪心算法的选择第一次错误。重新设计贪心算法后问题得到了解决。解决过程中参考了关于贪心算法的博客和hdu4864的贪心策略(下面给出链接)，并且让室友给出一些数据debug
+参考资料：
+1.https://wenku.baidu.com/view/364afa42a8956bec0975e3b1.html
+由于写这道题的时候只讲了AVL树这一种BBST，想使用一种更稳定并且实现代码更简洁的二叉搜索树，阅读了陈启峰的SBT论文，学习了整个的算法逻辑以及实现的伪代码
+2.http://m.blog.csdn.net/paradiserparadiser/article/details/10241485
+http://www.xuebuyuan.com/2225303.html
+参考了上述两篇博客中的SBT模板，使用了插入,删除和维护的代码，自己写了所需要的搜索接口。
+3.http://blog.csdn.net/effective_coder/article/details/8736718
+参考了博客中的几种典型的贪心策略
+4.http://m.blog.csdn.net/u013761036/article/details/38081287
+参考了hdu4864的贪心策略，对于有两个条件的贪心算法，一般是先挑选出一个优先考虑的条件，再逐个筛选满足第二个条件中的最优解
+三. 时间和空间复杂度的估算。
+1.时间复杂度估算
+通过循环读入各个桥和材料的数据，并且初始化一些参数，时间复杂度O(n);
+    int n, m;//n座石桥，m种材料
+	long long sum = 0;
+	scanf("%d %d", &n, &m);
+	bridge *b = new bridge[n];
+	ma *mat = new ma[m];
+	for (int i = 0; i < n; i++) {
+		scanf("%d %d", &b[i].p, &b[i].v);
+	}
+	for (int i = 0; i < m; i++) {
+		scanf("%d %d", &mat[i].h, &mat[i].d);
+	}
+对桥和材料按照美化度降序排列，时间复杂度O(mlogm)+O(nlogn)=O(mlogm);
+    qsort(b, n, sizeof(b[0]), cmpbridge);//桥按照美化度降序排列
+	qsort(mat, m, sizeof(mat[0]), cmpma);//材料也按照能提升的美化度降序排列
+因为有n座桥，因此外圈循环为n，对于每一次循环内的操作而言，由于树的规模不会超过m，因此树高为O(logm),单次的插入删除和搜索操作的时间复杂度都是O(logm),对于插入操作而言最少插n次最多可能把m种材料全部
+插到二叉树中，所以这一个循环的时间复杂度为O(mlogm)+2*O(nlogm)+O(n)=O(mlogm);
+    for (int i = 0; i < n; i++) {
+		while (j < m&&mat[j].d >= b[i].v) {
+			insert(root, mat[j].h);//把美化度满足第i座桥的所有材料都插到树中
+			j++;
+		}
+		search(root, b[i].p);//找到最小的满足桥花费的那种材料
+		sum = sum + (long long)money;
+		remove(root, money);//由于材料只能使用一次，删除被选出的材料
+	}
+输出结果时间复杂度为O(1);
+    printf("%lld", sum);
+因此整体时间复杂度T(n)=O(n)+O(mlogm)+O(mlogm)+O(1)=O(mlogm);其中m为材料的数量
+2.空间复杂度的估算
+存储桥和材料分别用了两个结果体数组bridge *b = new bridge[n];ma *mat = new ma[m];空间复杂度为O(m)+O(n);
+平衡二叉树中只存储了材料，因此二叉树的空间复杂度为O(m);
+因此整体的空间复杂度=O(m)+O(n)+O(m)=O(m);
+
+附：用讲义中的bst模板实现这道题的代码
+#include <stdio.h>
+#include <stdlib.h>
+#define max(a,b)    (((a) > (b)) ? (a) : (b))
+#define BinNodePosi(T) BinNode<T>*
+#define stature(p) ((p) ? (p)->height : -1)
+#define Balanced(x) ( stature( (x).lc ) == stature( (x).rc ) )
+#define BalFac(x) ( stature( (x).lc ) - stature( (x).rc ) )
+#define AvlBalanced(x) ( ( -2 < BalFac(x) ) && ( BalFac(x) < 2 ) )
+#define IsRoot(x) ( ! ( (x).parent ) )
+#define IsLChild(x) ( ! IsRoot(x) && ( & (x) == (x).parent->lc ) )
+#define IsRChild(x) ( ! IsRoot(x) && ( & (x) == (x).parent->rc ) )
+#define HasParent(x) ( ! IsRoot(x) )
+#define HasLChild(x) ( (x).lc )
+#define HasRChild(x) ( (x).rc )
+#define HasChild(x) ( HasLChild(x) || HasRChild(x) ) 
+#define HasBothChild(x) ( HasLChild(x) && HasRChild(x) ) 
+#define IsLeaf(x) ( ! HasChild(x) )
+#define FromParentTo(x) ( IsRoot(x) ? _root : ( IsLChild(x) ? (x).parent->lc : (x).parent->rc ) )
+#define tallerChild(x) ( \
+	stature( (x)->lc ) > stature( (x)->rc ) ? (x)->lc : ( /*左高*/ \
+	stature( (x)->lc ) < stature( (x)->rc ) ? (x)->rc : ( /*右高*/ \
+	IsLChild( * (x) ) ? (x)->lc : (x)->rc /*等高：与父亲x同侧者（zIg-zIg或zAg-zAg）优先*/ \
+	) \
+	) \
+	)
+template <typename T> void swap(T& a, T& b)
+{
+	T temp = a;
+	a = b;
+	b = temp;
+}
+
+template <typename T> struct BinNode {
+	T data; 
+	BinNodePosi(T) parent; BinNodePosi(T) lc; BinNodePosi(T) rc; 
+	int height; 
+	int cnt;
+	BinNode() { parent = NULL; lc = NULL; rc = NULL; height = 0; cnt = 1; }
+	BinNode(T e, BinNodePosi(T) p) { data = e; parent = p; lc = NULL; rc = NULL; height = 0; cnt = 1; }
+	int size(); 
+	BinNodePosi(T) succ();
+};
+
+template <typename T> int BinNode<T>::size() { 
+	int s = 1; 
+	if (lc) s += lc->size(); 
+	if (rc) s += rc->size(); 
+	return s;
+}
+
+template <typename T> BinNodePosi(T) BinNode<T>::succ() { 
+	BinNodePosi(T) s = this; 
+	if (rc) { 
+		s = rc; 
+		while (HasLChild(*s)) s = s->lc; 
+	}
+	else { 
+		while (IsRChild(*s)) s = s->parent; 
+		s = s->parent;
+	}
+	return s;
+}
+
+template <typename T> class BST { 
+protected:
+	int _size; BinNodePosi(T) _root; 
+	virtual int updateHeight(BinNodePosi(T) x); 
+	void updateHeightAbove(BinNodePosi(T) x); 
+	BinNodePosi(T) _hot; //
+	BinNodePosi(T) connect34(BinNodePosi(T) a, BinNodePosi(T) b, BinNodePosi(T) c, BinNodePosi(T) T0, BinNodePosi(T) T1, BinNodePosi(T) T2, BinNodePosi(T) T3);
+	BinNodePosi(T) rotateAt(BinNodePosi(T) v); 
+public:
+	T temp;
+	BST() : _size(0), _root(NULL) { }
+	int size() const { return _size; } 
+	bool empty() const { return !_root; } 
+	BinNodePosi(T) root() const { return _root; }
+	BinNodePosi(T) & search(const T& e);
+	BinNodePosi(T) insert(const T& e);
+	bool remove(const T& e); 
+	void searchlarger(BinNodePosi(T) e, T value);
+	void Searchlarger(T value);
+}; 
+
+template <typename T> int BST<T>::updateHeight(BinNodePosi(T) x) 
+{
+	return x->height = 1 + max(stature(x->lc), stature(x->rc));
+} 
+
+template <typename T> void BST<T>::updateHeightAbove(BinNodePosi(T) x) 
+{
+	while (x) { updateHeight(x); x = x->parent; }
+}
+
+template <typename T> 
+static BinNodePosi(T) & searchIn(BinNodePosi(T) & v, const T& e, BinNodePosi(T) & hot) {
+	if (!v || (e == v->data)) return v; 
+	hot = v; 
+	return searchIn(((e < v->data) ? v->lc : v->rc), e, hot); 
+} 
+template <typename T> BinNodePosi(T) & BST<T>::search(const T& e) 
+{
+	return searchIn(_root, e, _hot = NULL);
+} 
+
+template <typename T> BinNodePosi(T) BST<T>::insert(const T& e) { 
+	BinNodePosi(T) & x = search(e);
+	if (x) {
+		x->cnt++;
+		return x;
+	} 
+	else {
+		x = new BinNode<T>(e, _hot); 
+		_size++; 
+		updateHeightAbove(x); 
+		return x; 
+	}
+} 
+template <typename T>
+static BinNodePosi(T) removeAt(BinNodePosi(T) & x, BinNodePosi(T) & hot) {
+	BinNodePosi(T) w = x; 
+	BinNodePosi(T) succ = NULL;
+	if (!HasLChild(*x)) 
+		succ = x = x->rc; 
+	else if (!HasRChild(*x)) 
+		succ = x = x->lc; 
+	else { 
+		w = w->succ(); 
+		swap(x->data, w->data); 
+		BinNodePosi(T) u = w->parent;
+		((u == x) ? u->rc : u->lc) = succ = w->rc; 
+	}
+	hot = w->parent; 
+	if (succ) succ->parent = hot; 
+	return succ; 
+} 
+template <typename T> bool BST<T>::remove(const T& e) { 
+	BinNodePosi(T) & x = search(e); if (!x) return false; 
+	else {
+		if (x->cnt > 1) {
+			x->cnt--;
+			return true;
+		}
+		else {
+			removeAt(x, _hot); _size--; 
+			updateHeightAbove(_hot); 
+			return true;
+		}
+	}
+} 
+template <typename T> void BST<T>::searchlarger(BinNodePosi(T) e, T value) {//找到不小于所要查询的价格的最小值，这是自己新添加的搜索接口
+	if (e == nullptr)
+		return;
+	if (e->data >= value) {
+		temp = e->data;
+		searchlarger(e->lc, value);
+	}
+	else
+		searchlarger(e->rc, value);
+}
+template <typename T> void BST<T>::Searchlarger(T value) {
+	searchlarger(_root, value);
+	return;
+}
+struct bridge {
+	int p;//p记录修桥花费
+	int v;//v记录美化度
+};
+struct ma {
+	int h;//h记录材料花费
+	int d;//d记录材料提升美化度
+};
+int cmpbridge(const void *a, const void *b) {//桥按照美化度要求降序排列
+	bridge *c = (bridge *)a;
+	bridge *d = (bridge *)b;
+	if ((*c).v > (*d).v)
+		return -1;
+	else
+		return 1;
+}
+int cmpma(const void *a, const void *b) {//材料也按照美化度降序排列
+	ma *e = (ma *)a;
+	ma *f = (ma *)b;
+	if ((*e).d > (*f).d)
+		return -1;
+	else
+		return 1;
+}
+int main()
+{
+	setvbuf(stdin, new char[1 << 20], _IOFBF, 1 << 20);//这里参考了pa-book中的setvbuf加大缓冲区的代码
+	setvbuf(stdout, new char[1 << 20], _IOFBF, 1 << 20);
+	int n, m;//n座石桥，m种材料
+	long long sum = 0;
+	BST<int> BSTtree;
+	scanf("%d %d", &n, &m);
+	bridge *b = new bridge[n];
+	ma *mat = new ma[m];
+	for (int i = 0; i < n; i++) {
+		scanf("%d %d", &b[i].p, &b[i].v);
+	}
+	for (int i = 0; i < m; i++) {
+		scanf("%d %d", &mat[i].h, &mat[i].d);
+	}
+	qsort(b, n, sizeof(b[0]), cmpbridge);//桥按照美化度降序排列
+	qsort(mat, m, sizeof(mat[0]), cmpma);//材料也按照能提升的美化度降序排列
+	int j = 0;//用来记录材料被插入树中的个数
+	for (int i = 0; i < n; i++) {
+		while (j < m&&mat[j].d >= b[i].v) {
+			//insert(root, mat[j].h);//把美化度满足第i座桥的所有材料都插到树中
+			BSTtree.insert(mat[j].h);
+			j++;
+		}
+		BSTtree.Searchlarger(b[i].p);//找到最小的满足桥花费的那种材料
+		int another = BSTtree.temp;
+		sum = sum + (long long)another;
+		BSTtree.remove(another);//由于材料只能使用一次，删除被选出的材料
+	}
+	printf("%lld", sum);
+	delete[] b;
+	delete[] mat;
+	return 0;
+}
